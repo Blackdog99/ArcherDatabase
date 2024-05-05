@@ -2,9 +2,9 @@ import pytest
 import sys
 sys.path.insert(1, 'E:\\Andromeda\\pythonProject2\\Modules')
 #from scratch import helloworld
-import scratch as sc
+#import scratch as sc
 
-sc.helloworld()
+#sc.helloworld()
 
 import sqlite3
 
@@ -15,7 +15,6 @@ def db_connection():
     yield conn
     conn.close()
 
-@pytest.fixture
 def setup_database(db_connection):
     """Create a table in the testing database."""
     cursor = db_connection.cursor()
@@ -49,3 +48,6 @@ def test_verify_commit(db_connection, setup_database):
     results = cursor.fetchall()
     assert len(results) > 0, "No data was committed to the database."
 
+# This part allows the pytest runner to execute the tests.
+#if __name__ == "__main__":
+#    pytest.main()
