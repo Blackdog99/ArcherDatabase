@@ -202,22 +202,89 @@ class Archer_Portal():
     #             conn.commit()
     #         return result
 
+    # def run_query(self, query, parameters=(), commit=False):
+    #     with sqlite3.connect(self.db_name) as conn:
+    #         cursor = conn.cursor()
+    #         try:
+    #             cursor.execute(query, parameters)
+    #             if commit:
+    #                 conn.commit()
+    #             if query.lstrip().upper().startswith("SELECT"):
+    #                 return cursor.fetchall()
+    #             else:
+    #                 return cursor.rowcount  # Number of rows inserted/updated/deleted
+    #         except Exception as e:
+    #             conn.rollback()
+    #             raise e
+    #         finally:
+    #             cursor.close()
+
+    # def run_query(self, query, parameters=(), commit=False):
+    #     print("Using the following query: " + query)
+    #     with sqlite3.connect(self.db_name) as conn:
+    #         cursor = conn.cursor()
+    #         try:
+    #             # Start transaction explicitly if commit is required
+    #             if commit:
+    #                 cursor.execute('BEGIN')
+    #             cursor.execute(query, parameters)
+    #             if commit:
+    #                 conn.commit()
+    #             if query.lstrip().upper().startswith("SELECT"):
+    #                 return cursor.fetchall()
+    #             else:
+    #                 return cursor.rowcount  # Number of rows inserted/updated/deleted
+    #         except Exception as e:
+    #             conn.rollback()
+    #             raise e
+    #         finally:
+    #             cursor.close()
+
     def run_query(self, query, parameters=(), commit=False):
-        with sqlite3.connect(self.db_name) as conn:
-            cursor = conn.cursor()
-            try:
+        # Validate input query and parameters
+        if not isinstance(query, str):
+            raise ValueError("Query must be a string.")
+        if not isinstance(parameters, (tuple, list)):
+            raise ValueError("Parameters must be a tuple or a list.")
+        if not isinstance(commit, bool):
+            raise ValueError("Commit must be a boolean.")
+
+        print("Using the following query: " + query)
+
+        # Connect to the database
+        try:
+            with sqlite3.connect(self.db_name) as conn:
+                cursor = conn.cursor()
+                # Start transaction explicitly if commit is required
+                if commit:
+                    cursor.execute('BEGIN')
                 cursor.execute(query, parameters)
+
                 if commit:
                     conn.commit()
+
+                # Handling different types of queries
                 if query.lstrip().upper().startswith("SELECT"):
-                    return cursor.fetchall()
+                    return cursor.fetchall()  # For SELECT queries, return fetched data
                 else:
-                    return cursor.rowcount  # Number of rows inserted/updated/deleted
-            except Exception as e:
-                conn.rollback()
-                raise e
-            finally:
-                cursor.close()
+                    return cursor.rowcount  # For INSERT, UPDATE, DELETE, return affected row count
+
+        except sqlite3.DatabaseError as db_err:
+            if conn:
+                conn.rollback()  # Roll back the transaction on errors related to the database
+            print("Database error:", db_err)
+            raise
+
+        except Exception as e:
+            if conn:
+                conn.rollback()  # Roll back the transaction on general errors
+            print("Error executing the query:", e)
+            raise
+
+        finally:
+            if cursor:
+                cursor.close()  # Ensure the cursor is closed after operation
+
 
 
     def viewing_records(self):
@@ -440,8 +507,40 @@ class Archer_Portal():
 
         self.edit_root.mainloop()
 
+    def show_all(self,db_name, table_name):
+        """
+        Prints all records from the specified SQLite table.
+
+        Args:
+        db_name (str): The name of the SQLite database file.
+        table_name (str): The name of the table to print records from.
+        """
+        # Connect to the SQLite database
+        with sqlite3.connect(db_name) as conn:
+            cursor = conn.cursor()  # Create a cursor object
+            try:
+                # Execute a query to select all records from the table
+                cursor.execute(f"SELECT * FROM {table_name}")
+                records = cursor.fetchall()  # Fetch all rows from the query result
+
+                # Check if any records are found
+                if records:
+                    # Print each record
+                    for record in records:
+                        print(record)
+                else:
+                    print("No records found in the table.")
+
+            except sqlite3.Error as e:
+                # Handle any SQLite errors
+                print(f"An error occurred: {e}")
+
+            finally:
+                cursor.close()  # Close the cursor
+
     def edit_record(self, new_barcode, new_title, new_keyword1, new_keyword2, new_keyword3, new_plocation, new_vlocation,
                     new_description, old_barcode):
+        #self.show_all("archer.db","archer")
         print(f"Updating record {old_barcode} with new values.")
         new_description = new_description.strip()  # Ensuring description is stripped of leading/trailing whitespace
         query = '''
@@ -462,6 +561,8 @@ class Archer_Portal():
         except sqlite3.Error as e:
             print(f"SQLite error: {e}")
             self.message['text'] = 'Failed to update the record.'
+        #self.show_all("archer.db","archer")
+
     def edit(self):
         ed = tkinter.messagebox.askquestion('Edit Record', 'Do you want to Edit a Record?')
         if ed == 'yes':
